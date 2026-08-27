@@ -22,7 +22,36 @@ function Login() {
     e.preventDefault();
     setError("");
 
-    const savedUser = JSON.parse(localStorage.getItem("learnbridgeUser"));
+    /*
+     * Demo Admin Credentials
+     * These are temporary credentials for the hackathon frontend.
+     */
+    const isAdmin =
+      form.email === "admin@learnbridge.com" &&
+      form.password === "admin123";
+
+    // Admin Login
+    if (isAdmin) {
+      localStorage.setItem(
+        "learnbridgeAuth",
+        JSON.stringify({
+          isAuthenticated: true,
+          user: {
+            name: "Admin",
+            email: "admin@learnbridge.com",
+            role: "admin",
+          },
+        })
+      );
+
+      navigate("/admin/dashboard");
+      return;
+    }
+
+    // Normal Student Login
+    const savedUser = JSON.parse(
+      localStorage.getItem("learnbridgeUser")
+    );
 
     if (!savedUser) {
       setError("No account found. Please create an account first.");
@@ -41,7 +70,11 @@ function Login() {
       "learnbridgeAuth",
       JSON.stringify({
         isAuthenticated: true,
-        email: savedUser.email,
+        user: {
+          name: savedUser.name || savedUser.email.split("@")[0],
+          email: savedUser.email,
+          role: "student",
+        },
       })
     );
 

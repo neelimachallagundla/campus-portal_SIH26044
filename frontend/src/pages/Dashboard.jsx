@@ -308,10 +308,13 @@ function Dashboard() {
                 </p>
               </div>
 
-              <button className="flex items-center gap-1 text-sm font-semibold text-blue-600">
-                View all
-                <ChevronRight size={16} />
-              </button>
+              <button
+  onClick={() => navigate("/learning-paths")}
+  className="flex items-center gap-1 text-sm font-semibold text-blue-600"
+>
+  View all
+  <ChevronRight size={16} />
+</button>
             </div>
 
             <div className="grid gap-5 lg:grid-cols-3">
