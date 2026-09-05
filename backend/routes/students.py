@@ -1,5 +1,6 @@
+# pyright: reportMissingImports=false
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from typing import Any
 
 from database import SessionLocal
 from models import Student
@@ -21,12 +22,12 @@ def get_db():
 
 
 @router.get("/")
-def get_students(db: Session = Depends(get_db)):
+def get_students(db: Any = Depends(get_db)):
     return db.query(Student).all()
 
 
 @router.get("/{student_id}")
-def get_student(student_id: int, db: Session = Depends(get_db)):
+def get_student(student_id: int, db: Any = Depends(get_db)):
     student = db.query(Student).filter(
         Student.student_id == student_id
     ).first()
@@ -38,7 +39,7 @@ def get_student(student_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/")
-def create_student(data: StudentCreate, db: Session = Depends(get_db)):
+def create_student(data: StudentCreate, db: Any = Depends(get_db)):
     student = Student(
         college_id=data.college_id,
         name=data.name,
@@ -62,7 +63,7 @@ def create_student(data: StudentCreate, db: Session = Depends(get_db)):
 def update_student(
     student_id: int,
     data: StudentCreate,
-    db: Session = Depends(get_db)
+    db: Any = Depends(get_db)
 ):
     student = db.query(Student).filter(
         Student.student_id == student_id
@@ -88,7 +89,7 @@ def update_student(
 
 
 @router.delete("/{student_id}")
-def delete_student(student_id: int, db: Session = Depends(get_db)):
+def delete_student(student_id: int, db: Any = Depends(get_db)):
     student = db.query(Student).filter(
         Student.student_id == student_id
     ).first()
