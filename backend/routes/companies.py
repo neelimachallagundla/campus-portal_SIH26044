@@ -7,7 +7,7 @@ from schemas import CompanyCreate
 
 
 router = APIRouter(
-    prefix="/companies",
+    prefix="/api/companies",
     tags=["Companies"]
 )
 
@@ -46,6 +46,7 @@ def get_company(
     return company
 
 
+
 # CREATE company
 @router.post("/")
 def create_company(
@@ -53,6 +54,7 @@ def create_company(
     db: Session = Depends(get_db)
 ):
     new_company = Company(
+        company_id=company_data.company_id,
         company_name=company_data.company_name,
         industry=company_data.industry,
         location=company_data.location,
@@ -67,7 +69,6 @@ def create_company(
     db.refresh(new_company)
 
     return new_company
-
 
 # UPDATE company
 @router.put("/{company_id}")
@@ -98,7 +99,6 @@ def update_company(
     db.refresh(company)
 
     return company
-
 
 # DELETE company
 @router.delete("/{company_id}")

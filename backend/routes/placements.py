@@ -7,7 +7,7 @@ from schemas import PlacementCreate
 
 
 router = APIRouter(
-    prefix="/placements",
+    prefix="/api/placements",
     tags=["Placements"]
 )
 
@@ -46,12 +46,14 @@ def get_placement(
 
 
 # CREATE placement
+# CREATE placement
 @router.post("/")
 def create_placement(
     placement_data: PlacementCreate,
     db: Session = Depends(get_db)
 ):
     new_placement = Placement(
+        placement_id=placement_data.placement_id,
         student_id=placement_data.student_id,
         company_id=placement_data.company_id,
         job_role=placement_data.job_role,
@@ -65,8 +67,6 @@ def create_placement(
     db.refresh(new_placement)
 
     return new_placement
-
-
 # UPDATE placement
 @router.put("/{placement_id}")
 def update_placement(

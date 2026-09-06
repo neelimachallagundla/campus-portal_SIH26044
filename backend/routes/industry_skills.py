@@ -52,6 +52,7 @@ def create_industry_skill(
     db: Session = Depends(get_db)
 ):
     new_skill = IndustrySkill(
+        industry_skill_id=skill_data.industry_skill_id,
         company_id=skill_data.company_id,
         skill_id=skill_data.skill_id,
         required_level=skill_data.required_level,
@@ -63,7 +64,6 @@ def create_industry_skill(
     db.refresh(new_skill)
 
     return new_skill
-
 
 # UPDATE industry skill
 @router.put("/{industry_skill_id}")

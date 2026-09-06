@@ -1,5 +1,4 @@
 import os
-
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -17,7 +16,17 @@ DATABASE_URL = (
     f"@{DB_HOST}:{DB_PORT}/{DB_DATABASE}"
 )
 
-engine = create_engine(DATABASE_URL)
+# TiDB/MySQL connection settings
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_recycle=1800,
+    connect_args={
+        "connect_timeout": 10,
+        "read_timeout": 30,
+        "write_timeout": 30,
+    }
+)
 
 SessionLocal = sessionmaker(
     autocommit=False,
@@ -27,10 +36,10 @@ SessionLocal = sessionmaker(
 
 Base = declarative_base()
 
+# Test database connection
 try:
     with engine.connect() as connection:
         print("✅ MySQL connection successful!")
-
 except Exception as e:
     print("❌ MySQL connection failed!")
     print(e)

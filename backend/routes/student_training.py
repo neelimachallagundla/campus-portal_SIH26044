@@ -42,13 +42,14 @@ def get_student_training_by_id(
 
     return item
 
-
+# CREATE student training
 @router.post("/")
 def create_student_training(
     data: StudentTrainingCreate,
     db: Session = Depends(get_db)
 ):
     item = StudentTraining(
+        student_training_id=data.student_training_id,
         student_id=data.student_id,
         training_id=data.training_id,
         start_date=data.start_date,
@@ -60,7 +61,6 @@ def create_student_training(
     db.refresh(item)
 
     return item
-
 
 @router.put("/{student_training_id}")
 def update_student_training(

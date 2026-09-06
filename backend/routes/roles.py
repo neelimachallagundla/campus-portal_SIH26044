@@ -36,8 +36,12 @@ def get_role(role_id: int, db: Session = Depends(get_db)):
     return role
 
 
+# CREATE role
 @router.post("/")
-def create_role(data: RoleCreate, db: Session = Depends(get_db)):
+def create_role(
+    data: RoleCreate,
+    db: Session = Depends(get_db)
+):
     role = Role(
         role_id=data.role_id,
         role_name=data.role_name,
@@ -46,6 +50,7 @@ def create_role(data: RoleCreate, db: Session = Depends(get_db)):
 
     db.add(role)
     db.commit()
+    db.refresh(role)
 
     return role
 

@@ -1,5 +1,6 @@
-from pydantic import BaseModel
 
+from pydantic import BaseModel
+from typing import Optional
 
 class CompanyCreate(BaseModel):
     company_id: int
@@ -112,11 +113,26 @@ class TrainingProgramCreate(BaseModel):
     training_link: str
 
 
+from typing import Optional
+
 class ApplicationCreate(BaseModel):
+
     application_id: int
     student_id: int
-    internship_id: int
+    internship_id: Optional[int] = None
+    job_id: Optional[int] = None
     application_date: str
     status: str
     interview_status: str
-    remarks: str
+    remarks: Optional[str] = None
+
+class RegisterRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+    role: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str

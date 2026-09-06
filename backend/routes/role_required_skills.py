@@ -45,13 +45,14 @@ def get_role_required_skill(
     return skill
 
 
-# CREATE role required skill
+ # CREATE role required skill
 @router.post("/")
 def create_role_required_skill(
     skill_data: RoleRequiredSkillCreate,
     db: Session = Depends(get_db)
 ):
     new_skill = RoleRequiredSkill(
+        role_required_skill_id=skill_data.role_required_skill_id,
         role_id=skill_data.role_id,
         skill_id=skill_data.skill_id,
         is_mandatory=skill_data.is_mandatory
@@ -62,7 +63,6 @@ def create_role_required_skill(
     db.refresh(new_skill)
 
     return new_skill
-
 
 # UPDATE role required skill
 @router.put("/{role_required_skill_id}")
