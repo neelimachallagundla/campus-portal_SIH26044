@@ -1,4 +1,8 @@
+import { useNavigate } from "react-router-dom";
+
 function Hero() {
+  const navigate = useNavigate();
+
   const skills = [
     { name: "Java", score: 92, color: "bg-emerald-500" },
     { name: "SQL", score: 84, color: "bg-cyan-500" },
@@ -28,13 +32,23 @@ function Hero() {
           </p>
 
           <div className="mt-8 flex flex-wrap gap-4">
-            <button className="rounded-lg bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
+
+            {/* ASSESS YOUR SKILLS */}
+            <button
+              onClick={() => navigate("/skill-assessment")}
+              className="rounded-lg bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+            >
               Assess Your Skills
             </button>
 
-            <button className="rounded-lg border border-slate-300 bg-white px-6 py-3.5 text-sm font-semibold text-slate-800 transition hover:border-blue-300 hover:text-blue-600">
+            {/* EXPLORE OPPORTUNITIES */}
+            <button
+              onClick={() => navigate("/opportunities")}
+              className="rounded-lg border border-slate-300 bg-white px-6 py-3.5 text-sm font-semibold text-slate-800 transition hover:border-blue-300 hover:text-blue-600"
+            >
               Explore Opportunities
             </button>
+
           </div>
 
           <div className="mt-8 flex flex-wrap gap-6 text-sm text-slate-500">
@@ -100,7 +114,11 @@ function Hero() {
                 Improve React and Cloud to increase your career readiness.
               </p>
 
-              <button className="mt-3 text-xs font-semibold text-blue-400 hover:text-blue-300">
+              {/* VIEW CAREER PATH */}
+              <button
+                onClick={() => navigate("/learning-paths")}
+                className="mt-3 text-xs font-semibold text-blue-400 hover:text-blue-300"
+              >
                 View Career Path →
               </button>
             </div>

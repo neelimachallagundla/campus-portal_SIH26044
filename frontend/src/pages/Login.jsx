@@ -22,81 +22,170 @@ function Login() {
     e.preventDefault();
     setError("");
 
+    let user = null;
+
     /*
-     * Demo Admin Credentials
-     * These are temporary credentials for the hackathon frontend.
+     * =========================================================
+     * DEMO ROLE-BASED LOGIN
+     * These credentials are temporary for frontend development.
+     * Backend authentication will replace this later.
+     * =========================================================
      */
-    const isAdmin =
-      form.email === "admin@learnbridge.com" &&
-      form.password === "admin123";
 
-    // Admin Login
-    if (isAdmin) {
-      localStorage.setItem(
-        "learnbridgeAuth",
-        JSON.stringify({
-          isAuthenticated: true,
-          user: {
-            name: "Admin",
-            email: "admin@learnbridge.com",
-            role: "admin",
-          },
-        })
-      );
-
-      navigate("/admin/dashboard");
-      return;
-    }
-
-    // Normal Student Login
-    const savedUser = JSON.parse(
-      localStorage.getItem("learnbridgeUser")
-    );
-
-    if (!savedUser) {
-      setError("No account found. Please create an account first.");
-      return;
-    }
-
+    // ---------------------------------------------------------
+    // ADMIN
+    // ---------------------------------------------------------
     if (
-      savedUser.email !== form.email ||
-      savedUser.password !== form.password
+      form.email === "admin@learnbridge.com" &&
+      form.password === "admin123"
     ) {
+      user = {
+        name: "Admin",
+        email: form.email,
+        role: "admin",
+      };
+    }
+
+    // ---------------------------------------------------------
+    // ACADEMICIAN
+    // ---------------------------------------------------------
+    else if (
+      form.email === "faculty@learnbridge.com" &&
+      form.password === "faculty123"
+    ) {
+      user = {
+        name: "Academician",
+        email: form.email,
+        role: "academician",
+      };
+    }
+
+    // ---------------------------------------------------------
+    // ORGANIZATION
+    // ---------------------------------------------------------
+    else if (
+      form.email === "company@learnbridge.com" &&
+      form.password === "company123"
+    ) {
+      user = {
+        name: "Organization",
+        email: form.email,
+        role: "organization",
+      };
+    }
+
+    // ---------------------------------------------------------
+    // DEMO STUDENT
+    // ---------------------------------------------------------
+    else if (
+      form.email === "student@learnbridge.com" &&
+      form.password === "student123"
+    ) {
+      user = {
+        name: "Student",
+        email: form.email,
+        role: "student",
+      };
+    }
+
+    // ---------------------------------------------------------
+    // EXISTING SIGNUP USER
+    // ---------------------------------------------------------
+    else {
+      const savedUserData = localStorage.getItem("learnbridgeUser");
+
+      if (savedUserData) {
+        try {
+          const savedUser = JSON.parse(savedUserData);
+
+          if (
+            savedUser.email === form.email &&
+            savedUser.password === form.password
+          ) {
+            user = {
+              name:
+                savedUser.name ||
+                savedUser.email.split("@")[0],
+              email: savedUser.email,
+              role: "student",
+            };
+          }
+        } catch (error) {
+          localStorage.removeItem("learnbridgeUser");
+        }
+      }
+    }
+
+    // ---------------------------------------------------------
+    // INVALID LOGIN
+    // ---------------------------------------------------------
+    if (!user) {
       setError("Invalid email or password.");
       return;
     }
+
+    /*
+     * =========================================================
+     * SAVE AUTHENTICATION DATA
+     * =========================================================
+     */
 
     localStorage.setItem(
       "learnbridgeAuth",
       JSON.stringify({
         isAuthenticated: true,
-        user: {
-          name: savedUser.name || savedUser.email.split("@")[0],
-          email: savedUser.email,
-          role: "student",
-        },
+        user: user,
       })
     );
 
-    navigate("/dashboard");
+    /*
+     * =========================================================
+     * ROLE-BASED REDIRECTION
+     * =========================================================
+     */
+
+    switch (user.role) {
+      case "admin":
+        navigate("/admin/dashboard");
+        break;
+
+      case "academician":
+        navigate("/academician/dashboard");
+        break;
+
+      case "organization":
+        navigate("/organization/dashboard");
+        break;
+
+      case "student":
+      default:
+        navigate("/dashboard");
+        break;
+    }
   };
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+
       <div className="w-full max-w-md">
 
         {/* Logo / Brand */}
         <div className="text-center mb-8">
+
           <Link to="/" className="inline-block">
+
             <h1 className="text-3xl font-bold text-blue-600">
               LearnBridge
             </h1>
+
           </Link>
 
           <p className="mt-2 text-slate-500">
             Welcome back! Continue your learning journey.
           </p>
+
         </div>
+
 
         {/* Login Card */}
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8">
@@ -109,16 +198,23 @@ function Login() {
             Enter your credentials to access your dashboard.
           </p>
 
+
+          {/* Error */}
           {error && (
             <div className="mb-5 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-5"
+          >
 
             {/* Email */}
             <div>
+
               <label
                 htmlFor="email"
                 className="block text-sm font-medium text-slate-700 mb-2"
@@ -136,10 +232,13 @@ function Login() {
                 required
                 className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
+
             </div>
+
 
             {/* Password */}
             <div>
+
               <label
                 htmlFor="password"
                 className="block text-sm font-medium text-slate-700 mb-2"
@@ -157,40 +256,52 @@ function Login() {
                 required
                 className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
+
             </div>
 
-            {/* Login button */}
+
+            {/* Login Button */}
             <button
               type="submit"
               className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white transition hover:bg-blue-700 active:scale-[0.98]"
             >
               Sign in
             </button>
+
           </form>
+
 
           {/* Signup */}
           <p className="text-center text-sm text-slate-500 mt-6">
+
             Don't have an account?{" "}
+
             <Link
               to="/signup"
               className="font-semibold text-blue-600 hover:text-blue-700"
             >
               Create one
             </Link>
+
           </p>
+
         </div>
+
 
         {/* Back */}
         <div className="text-center mt-6">
+
           <Link
             to="/"
             className="text-sm text-slate-500 hover:text-blue-600"
           >
             ← Back to LearnBridge
           </Link>
+
         </div>
 
       </div>
+
     </div>
   );
 }

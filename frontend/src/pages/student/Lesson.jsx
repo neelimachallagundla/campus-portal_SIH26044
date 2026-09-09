@@ -273,13 +273,33 @@ function getCompletedLessons(pathId, moduleId) {
   }
 }
 
-function saveCompletedLessons(pathId, moduleId, completedLessons) {
+function saveCompletedLessons(
+  pathId,
+  moduleId,
+  completedLessons
+) {
   localStorage.setItem(
     getLessonStorageKey(pathId, moduleId),
     JSON.stringify(completedLessons)
   );
 
-  window.dispatchEvent(new Event("learnbridge-progress"));
+  const moduleProgressKey =
+    `learnbridge_module_progress_${pathId}_${moduleId}`;
+
+  localStorage.setItem(
+    moduleProgressKey,
+    JSON.stringify({
+      pathId,
+      moduleId,
+      completedLessons,
+      completedCount: completedLessons.length,
+      updatedAt: new Date().toISOString(),
+    })
+  );
+
+  window.dispatchEvent(
+    new Event("learnbridge-progress")
+  );
 }
 
 function getSavedTime(pathId, moduleId) {
@@ -300,7 +320,9 @@ function saveTime(pathId, moduleId, seconds) {
     String(seconds)
   );
 
-  window.dispatchEvent(new Event("learnbridge-progress"));
+  window.dispatchEvent(
+    new Event("learnbridge-progress")
+  );
 }
 
 function parseMinutes(duration) {
@@ -323,25 +345,36 @@ function Lesson() {
   const [searchParams] = useSearchParams();
 
   const moduleId =
-    searchParams.get("module") || defaultModules[pathId];
+    searchParams.get("module") ||
+    defaultModules[pathId];
 
   const lessonIndex = Math.max(
     0,
     Number(searchParams.get("lesson") || 0)
   );
 
-  const moduleData = lessonData[pathId]?.[moduleId];
+  const moduleData =
+    lessonData[pathId]?.[moduleId];
 
-  const [completedLessons, setCompletedLessons] = useState(() =>
-    moduleData ? getCompletedLessons(pathId, moduleId) : []
-  );
+  const [completedLessons, setCompletedLessons] =
+    useState(() =>
+      moduleData
+        ? getCompletedLessons(pathId, moduleId)
+        : []
+    );
 
-  const [learningTime, setLearningTime] = useState(() =>
-    moduleData ? getSavedTime(pathId, moduleId) : 0
-  );
+  const [learningTime, setLearningTime] =
+    useState(() =>
+      moduleData
+        ? getSavedTime(pathId, moduleId)
+        : 0
+    );
 
   const sessionStartRef = useRef(null);
 
+  /*
+   * Reload saved progress whenever the module/path changes.
+   */
   useEffect(() => {
     if (!moduleData) return;
 
@@ -352,13 +385,44 @@ function Lesson() {
     setLearningTime(
       getSavedTime(pathId, moduleId)
     );
-  }, [pathId, moduleId]);
+  }, [pathId, moduleId, moduleData]);
 
   /*
-   * Module timer
-   * ----------------
-   * The timer belongs to the entire module, not an individual lesson.
-   * Therefore changing lessonIndex does NOT reset the timer.
+   * Prevent direct URL access to locked lessons.
+   */
+  useEffect(() => {
+    if (!moduleData) return;
+
+    const savedCompletedLessons =
+      getCompletedLessons(pathId, moduleId);
+
+    const locked =
+      lessonIndex > 0 &&
+      !savedCompletedLessons.includes(
+        lessonIndex - 1
+      );
+
+    if (locked) {
+      navigate(
+        `/learning-paths/${pathId}/lessons?module=${moduleId}&lesson=0`,
+        { replace: true }
+      );
+    }
+  }, [
+    pathId,
+    moduleId,
+    lessonIndex,
+    moduleData,
+    navigate,
+  ]);
+
+  /*
+   * Module learning timer.
+   *
+   * Important:
+   * startingTime is captured once when the session starts.
+   * This prevents saved time from being repeatedly added
+   * to the current session every second.
    */
   useEffect(() => {
     if (!moduleData) return;
@@ -366,44 +430,56 @@ function Lesson() {
     const requiredSeconds =
       parseMinutes(moduleData.duration) * 60;
 
+    const startingTime = getSavedTime(
+      pathId,
+      moduleId
+    );
+
     sessionStartRef.current = Date.now();
 
     const interval = setInterval(() => {
-      const savedTime =
-        getSavedTime(pathId, moduleId);
-
       const sessionSeconds = Math.floor(
-        (Date.now() - sessionStartRef.current) / 1000
+        (Date.now() -
+          sessionStartRef.current) /
+          1000
       );
 
       const totalSeconds = Math.min(
-        savedTime + sessionSeconds,
+        startingTime + sessionSeconds,
         requiredSeconds
       );
 
       setLearningTime(totalSeconds);
 
-      saveTime(
-        pathId,
-        moduleId,
-        totalSeconds
+      localStorage.setItem(
+        getTimerStorageKey(
+          pathId,
+          moduleId
+        ),
+        String(totalSeconds)
       );
 
-      if (totalSeconds >= requiredSeconds) {
+      window.dispatchEvent(
+        new Event("learnbridge-progress")
+      );
+
+      if (
+        totalSeconds >=
+        requiredSeconds
+      ) {
         clearInterval(interval);
       }
     }, 1000);
 
     return () => {
-      const savedTime =
-        getSavedTime(pathId, moduleId);
-
       const sessionSeconds = Math.floor(
-        (Date.now() - sessionStartRef.current) / 1000
+        (Date.now() -
+          sessionStartRef.current) /
+          1000
       );
 
       const totalSeconds = Math.min(
-        savedTime + sessionSeconds,
+        startingTime + sessionSeconds,
         requiredSeconds
       );
 
@@ -417,6 +493,9 @@ function Lesson() {
     };
   }, [pathId, moduleId, moduleData]);
 
+  /*
+   * Invalid module/lesson handling.
+   */
   if (!moduleData) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
@@ -427,7 +506,9 @@ function Lesson() {
 
           <button
             onClick={() =>
-              navigate(`/learning-paths/${pathId}`)
+              navigate(
+                `/learning-paths/${pathId}`
+              )
             }
             className="mt-4 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white"
           >
@@ -441,12 +522,42 @@ function Lesson() {
   const currentLesson =
     moduleData.lessons[lessonIndex];
 
+  /*
+   * Protect against an invalid lesson index.
+   */
+  if (!currentLesson) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold">
+            Lesson not found
+          </h1>
+
+          <button
+            onClick={() =>
+              navigate(
+                `/learning-paths/${pathId}/lessons?module=${moduleId}&lesson=0`
+              )
+            }
+            className="mt-4 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white"
+          >
+            Go to First Lesson
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const isCompleted =
-    completedLessons.includes(lessonIndex);
+    completedLessons.includes(
+      lessonIndex
+    );
 
   const isLocked =
     lessonIndex > 0 &&
-    !completedLessons.includes(lessonIndex - 1);
+    !completedLessons.includes(
+      lessonIndex - 1
+    );
 
   const moduleProgress = Math.round(
     (completedLessons.length /
@@ -455,7 +566,8 @@ function Lesson() {
   );
 
   const requiredSeconds =
-    parseMinutes(moduleData.duration) * 60;
+    parseMinutes(moduleData.duration) *
+    60;
 
   const timeRequirementMet =
     learningTime >= requiredSeconds;
@@ -468,39 +580,82 @@ function Lesson() {
     allLessonsCompleted &&
     timeRequirementMet;
 
-  const timeProgress = Math.min(
-    Math.round(
-      (learningTime / requiredSeconds) * 100
-    ),
-    100
-  );
+  const timeProgress =
+    requiredSeconds > 0
+      ? Math.min(
+          Math.round(
+            (learningTime /
+              requiredSeconds) *
+              100
+          ),
+          100
+        )
+      : 0;
 
   const remainingSeconds = Math.max(
     requiredSeconds - learningTime,
     0
   );
 
+  /*
+   * Mark current lesson complete.
+   */
   const handleComplete = () => {
     if (isLocked) return;
 
-    if (!completedLessons.includes(lessonIndex)) {
-      const updated = [
-        ...completedLessons,
-        lessonIndex,
-      ].sort((a, b) => a - b);
+    if (
+      completedLessons.includes(
+        lessonIndex
+      )
+    ) {
+      return;
+    }
 
-      setCompletedLessons(updated);
+    const updated = [
+      ...completedLessons,
+      lessonIndex,
+    ].sort((a, b) => a - b);
 
-      saveCompletedLessons(
+    setCompletedLessons(updated);
+
+    saveCompletedLessons(
+      pathId,
+      moduleId,
+      updated
+    );
+
+    /*
+     * Store individual completion event.
+     */
+    const lessonCompletionKey =
+      `learnbridge_lesson_completion_${pathId}_${moduleId}_${lessonIndex}`;
+
+    localStorage.setItem(
+      lessonCompletionKey,
+      JSON.stringify({
         pathId,
         moduleId,
-        updated
-      );
-    }
+        lessonIndex,
+        lessonTitle:
+          moduleData.lessons[
+            lessonIndex
+          ],
+        completedAt:
+          new Date().toISOString(),
+      })
+    );
+
+    window.dispatchEvent(
+      new Event("learnbridge-progress")
+    );
   };
 
+  /*
+   * Move to next lesson or assessment.
+   */
   const handleNextLesson = () => {
-    const nextLesson = lessonIndex + 1;
+    const nextLesson =
+      lessonIndex + 1;
 
     if (
       nextLesson <
@@ -521,7 +676,9 @@ function Lesson() {
   };
 
   const handleBack = () => {
-    navigate(`/learning-paths/${pathId}`);
+    navigate(
+      `/learning-paths/${pathId}`
+    );
   };
 
   return (
@@ -541,7 +698,7 @@ function Lesson() {
 
           <div className="flex items-center gap-5">
 
-            {/* Small timer in header */}
+            {/* HEADER TIMER */}
             <div className="hidden items-center gap-2 sm:flex">
               <Clock3
                 size={17}
@@ -553,13 +710,19 @@ function Lesson() {
               />
 
               <span className="text-sm font-semibold text-slate-600">
-                {formatTime(learningTime)} /{" "}
-                {formatTime(requiredSeconds)}
+                {formatTime(
+                  learningTime
+                )}{" "}
+                /{" "}
+                {formatTime(
+                  requiredSeconds
+                )}
               </span>
             </div>
 
             <div className="text-sm font-medium text-slate-500">
-              Lesson {lessonIndex + 1} of{" "}
+              Lesson{" "}
+              {lessonIndex + 1} of{" "}
               {moduleData.lessons.length}
             </div>
 
@@ -567,13 +730,13 @@ function Lesson() {
         </div>
       </header>
 
-      {/* MAIN CONTENT */}
+      {/* MAIN */}
       <main className="mx-auto grid max-w-7xl gap-8 px-5 py-8 sm:px-8 lg:grid-cols-[1fr_300px]">
 
         {/* LESSON CONTENT */}
         <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
 
-          {/* LESSON TITLE */}
+          {/* TITLE */}
           <div className="mb-8">
 
             <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -594,8 +757,9 @@ function Lesson() {
             </h1>
 
             <p className="mt-3 text-slate-500">
-              Learn the fundamentals and understand how
-              this concept is used in real-world software
+              Learn the fundamentals and
+              understand how this concept
+              is used in real-world software
               development.
             </p>
 
@@ -628,14 +792,17 @@ function Lesson() {
           <div className="prose prose-slate max-w-none">
 
             <h2>
-              What is {currentLesson}?
+              What is{" "}
+              {currentLesson}?
             </h2>
 
             <p>
-              {currentLesson} is an important concept
-              that every developer should understand.
-              It helps build a strong foundation and
-              prepares you for practical software
+              {currentLesson} is an
+              important concept that every
+              developer should understand.
+              It helps build a strong
+              foundation and prepares you
+              for practical software
               development.
             </p>
 
@@ -644,11 +811,12 @@ function Lesson() {
             </h2>
 
             <p>
-              Understanding this concept allows
-              developers to write cleaner, more efficient
-              and maintainable applications. It is
-              commonly used in real-world software
-              projects.
+              Understanding this concept
+              allows developers to write
+              cleaner, more efficient and
+              maintainable applications. It
+              is commonly used in real-world
+              software projects.
             </p>
 
             {/* KEY TAKEAWAY */}
@@ -668,10 +836,12 @@ function Lesson() {
                   </p>
 
                   <p className="mt-1 text-sm leading-6 text-blue-700">
-                    Focus on understanding the concept
-                    first. Once you understand the
-                    fundamentals, practice applying them
-                    through small coding problems.
+                    Focus on understanding
+                    the concept first. Once
+                    you understand the
+                    fundamentals, practice
+                    applying them through
+                    small coding problems.
                   </p>
 
                 </div>
@@ -709,11 +879,13 @@ public class Example {
               </li>
 
               <li>
-                Apply the concept to real problems.
+                Apply the concept to real
+                problems.
               </li>
 
               <li>
-                Review your mistakes and improve.
+                Review your mistakes and
+                improve.
               </li>
 
             </ul>
@@ -741,8 +913,9 @@ public class Example {
                     </p>
 
                     <p className="mt-1 text-sm text-amber-700">
-                      Complete the previous lesson to
-                      unlock this lesson.
+                      Complete the previous
+                      lesson to unlock this
+                      lesson.
                     </p>
 
                   </div>
@@ -769,7 +942,8 @@ public class Example {
                     </p>
 
                     <p className="mt-1 text-sm text-emerald-700">
-                      Great work. Your progress has been
+                      Great work. Your
+                      progress has been
                       saved.
                     </p>
 
@@ -778,7 +952,9 @@ public class Example {
                 </div>
 
                 <button
-                  onClick={handleNextLesson}
+                  onClick={
+                    handleNextLesson
+                  }
                   disabled={
                     lessonIndex + 1 >=
                       moduleData.lessons.length &&
@@ -816,8 +992,9 @@ public class Example {
                   !assessmentUnlocked && (
 
                   <p className="mt-3 text-xs text-amber-700">
-                    Complete the minimum learning time
-                    to unlock the assessment.
+                    Complete the minimum
+                    learning time to unlock
+                    the assessment.
                   </p>
 
                 )}
@@ -827,7 +1004,9 @@ public class Example {
             ) : (
 
               <button
-                onClick={handleComplete}
+                onClick={
+                  handleComplete
+                }
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-700"
               >
 
@@ -843,7 +1022,7 @@ public class Example {
 
         </article>
 
-        {/* RIGHT SIDEBAR */}
+        {/* SIDEBAR */}
         <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5 lg:sticky lg:top-28">
 
           {/* MODULE PROGRESS */}
@@ -863,14 +1042,13 @@ public class Example {
           </div>
 
           <p className="mt-2 text-xs text-slate-500">
-            {completedLessons.length} of{" "}
-            {moduleData.lessons.length} lessons completed
+            {completedLessons.length}{" "}
+            of{" "}
+            {moduleData.lessons.length}{" "}
+            lessons completed
           </p>
 
-          {/* MODULE TIMER
-              This is the ONLY dedicated timer card.
-              It stays in the sidebar for every lesson.
-          */}
+          {/* TIMER */}
           <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
 
             <div className="flex items-center justify-between">
@@ -893,7 +1071,9 @@ public class Example {
               </div>
 
               <span className="text-xs font-bold text-slate-700">
-                {formatTime(learningTime)}
+                {formatTime(
+                  learningTime
+                )}
               </span>
 
             </div>
@@ -920,7 +1100,9 @@ public class Example {
               </p>
 
               <p className="text-[11px] font-semibold text-slate-600">
-                {formatTime(requiredSeconds)}
+                {formatTime(
+                  requiredSeconds
+                )}
               </p>
 
             </div>
@@ -945,13 +1127,19 @@ public class Example {
           <div className="mt-6 space-y-2">
 
             {moduleData.lessons.map(
-              (lessonTitle, index) => {
+              (
+                lessonTitle,
+                index
+              ) => {
 
                 const completed =
-                  completedLessons.includes(index);
+                  completedLessons.includes(
+                    index
+                  );
 
                 const current =
-                  index === lessonIndex;
+                  index ===
+                  lessonIndex;
 
                 const locked =
                   index > 0 &&
@@ -960,18 +1148,15 @@ public class Example {
                   );
 
                 return (
-
                   <button
                     key={lessonTitle}
                     disabled={locked}
                     onClick={() => {
 
                       if (!locked) {
-
                         navigate(
                           `/learning-paths/${pathId}/lessons?module=${moduleId}&lesson=${index}`
                         );
-
                       }
 
                     }}
@@ -1021,9 +1206,7 @@ public class Example {
                     </span>
 
                   </button>
-
                 );
-
               }
             )}
 
@@ -1072,8 +1255,9 @@ public class Example {
 
               <>
                 <p className="mt-2 text-sm text-purple-800">
-                  All lessons are complete and the minimum
-                  learning time has been reached.
+                  All lessons are complete
+                  and the minimum learning
+                  time has been reached.
                 </p>
 
                 <button
@@ -1093,8 +1277,10 @@ public class Example {
 
               <>
                 <p className="mt-2 text-sm text-slate-600">
-                  Complete all lessons and reach the minimum
-                  learning time to unlock the assessment.
+                  Complete all lessons
+                  and reach the minimum
+                  learning time to unlock
+                  the assessment.
                 </p>
 
                 <div className="mt-3 space-y-2 text-xs">
@@ -1143,13 +1329,11 @@ public class Example {
 
                 </div>
               </>
-
             )}
 
           </div>
 
         </aside>
-
       </main>
     </div>
   );

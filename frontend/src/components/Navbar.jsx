@@ -15,6 +15,7 @@ function Navbar() {
 
         {/* Navigation */}
         <div className="hidden items-center gap-8 md:flex">
+
           <a
             href="#how-it-works"
             className="text-sm font-medium text-slate-600 transition hover:text-blue-600"
@@ -42,10 +43,12 @@ function Navbar() {
           >
             About
           </a>
+
         </div>
 
         {/* Actions */}
         <div className="flex items-center gap-3">
+
           <Link
             to="/login"
             className="hidden text-sm font-semibold text-slate-700 transition hover:text-blue-600 sm:block"
@@ -59,6 +62,7 @@ function Navbar() {
           >
             Get Started
           </Link>
+
         </div>
 
       </nav>
