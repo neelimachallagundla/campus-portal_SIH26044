@@ -49,6 +49,7 @@ def create_training_program(
     db: Session = Depends(get_db)
 ):
     program = TrainingProgram(
+        training_id=data.training_id,
         skill_id=data.skill_id,
         training_name=data.training_name,
         provider=data.provider,
@@ -62,7 +63,6 @@ def create_training_program(
     db.refresh(program)
 
     return program
-
 
 @router.put("/{training_id}")
 def update_training_program(

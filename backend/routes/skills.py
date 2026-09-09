@@ -36,8 +36,12 @@ def get_skill(skill_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/")
-def create_skill(data: SkillCreate, db: Session = Depends(get_db)):
+def create_skill(
+    data: SkillCreate,
+    db: Session = Depends(get_db)
+):
     skill = Skill(
+        skill_id=data.skill_id,
         skill_name=data.skill_name,
         skill_category=data.skill_category,
         description=data.description,
@@ -50,6 +54,7 @@ def create_skill(data: SkillCreate, db: Session = Depends(get_db)):
 
     return skill
 
+    
 
 @router.put("/{skill_id}")
 def update_skill(

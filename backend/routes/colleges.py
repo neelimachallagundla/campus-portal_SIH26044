@@ -5,6 +5,7 @@ from database import SessionLocal
 from models import College
 from schemas import CollegeCreate
 
+
 router = APIRouter(
     prefix="/colleges",
     tags=["Colleges"]
@@ -52,6 +53,7 @@ def create_college(
     db: Session = Depends(get_db)
 ):
     new_college = College(
+        college_id=college_data.college_id,
         college_name=college_data.college_name,
         university_name=college_data.university_name,
         location=college_data.location,
@@ -63,7 +65,7 @@ def create_college(
 
     db.add(new_college)
     db.commit()
-    
+    db.refresh(new_college)
 
     return new_college
 

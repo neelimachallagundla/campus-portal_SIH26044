@@ -7,7 +7,7 @@ from schemas import InternshipCreate
 
 
 router = APIRouter(
-    prefix="/internships",
+    prefix="/api/internships",
     tags=["Internships"]
 )
 
@@ -46,6 +46,7 @@ def get_internship(
     return internship
 
 
+
 # CREATE internship
 @router.post("/")
 def create_internship(
@@ -53,6 +54,7 @@ def create_internship(
     db: Session = Depends(get_db)
 ):
     new_internship = Internship(
+        internship_id=internship_data.internship_id,
         company_id=internship_data.company_id,
         title=internship_data.title,
         description=internship_data.description,
@@ -67,7 +69,6 @@ def create_internship(
     db.refresh(new_internship)
 
     return new_internship
-
 
 # UPDATE internship
 @router.put("/{internship_id}")

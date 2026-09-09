@@ -1,8 +1,15 @@
+<<<<<<< HEAD
 from importlib import import_module
 
 
 FastAPI = import_module("fastapi").FastAPI
 CORSMiddleware = import_module("fastapi.middleware.cors").CORSMiddleware
+=======
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+>>>>>>> 936d25f (Complete backend APIs and integration)
 from database import engine
 
 from routes.colleges import router as colleges_router
@@ -18,6 +25,15 @@ from routes.students import router as students_router
 from routes.student_skills import router as student_skills_router
 from routes.student_training import router as student_training_router
 from routes.training_programs import router as training_programs_router
+from routes.analytics import router as analytics_router
+from routes.auth import router as auth_router
+from routes.admin import router as admin_router
+from routes.learning_paths import router as learning_paths_router
+from routes.courses import router as courses_router
+from routes.modules import router as modules_router
+from routes.progress import router as progress_router
+from routes.jobs import router as jobs_router
+
 
 
 app = FastAPI(
@@ -49,7 +65,18 @@ app.include_router(students_router)
 app.include_router(student_skills_router)
 app.include_router(student_training_router)
 app.include_router(training_programs_router)
+<<<<<<< HEAD
 
+=======
+app.include_router(analytics_router)
+app.include_router(auth_router)
+app.include_router(admin_router)
+app.include_router(learning_paths_router)
+app.include_router(courses_router)
+app.include_router(modules_router)
+app.include_router(progress_router)
+app.include_router(jobs_router)
+>>>>>>> 936d25f (Complete backend APIs and integration)
 
 @app.get("/")
 def home():
@@ -64,3 +91,4 @@ def health_check():
         "status": "OK",
         "message": "Backend is running"
     }
+

@@ -1,15 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from database import SessionLocal
-from models import Application
+from models import Application, Student, User
 from schemas import ApplicationCreate
+from security import verify_access_token
 
 
 router = APIRouter(
-    prefix="/applications",
+    prefix="/api/applications",
     tags=["Applications"]
 )
+
+security = HTTPBearer()
 
 
 def get_db():
@@ -23,8 +27,7 @@ def get_db():
 # GET all applications
 @router.get("/")
 def get_applications(db: Session = Depends(get_db)):
-    applications = db.query(Application).all()
-    return applications
+    return db.query(Application).all()
 
 
 # GET one application
@@ -46,6 +49,62 @@ def get_application(
     return application
 
 
+# GET logged-in student's applications
+@router.get("/student/me")
+def get_my_applications(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    token = credentials.credentials
+    payload = verify_access_token(token)
+
+    if not payload:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"
+        )
+
+    user_id = payload.get("user_id")
+
+    if not user_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token"
+        )
+
+    user = db.query(User).filter(
+        User.user_id == user_id
+    ).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    if user.role != "student":
+        raise HTTPException(
+            status_code=403,
+            detail="Only students can access their applications"
+        )
+
+    student = db.query(Student).filter(
+        Student.email == user.email
+    ).first()
+
+    if not student:
+        raise HTTPException(
+            status_code=404,
+            detail="Student profile not found"
+        )
+
+    applications = db.query(Application).filter(
+        Application.student_id == student.student_id
+    ).all()
+
+    return applications
+
+
 # CREATE application
 @router.post("/")
 def create_application(
@@ -53,8 +112,10 @@ def create_application(
     db: Session = Depends(get_db)
 ):
     new_application = Application(
+        application_id=application_data.application_id,
         student_id=application_data.student_id,
         internship_id=application_data.internship_id,
+        job_id=application_data.job_id,
         application_date=application_data.application_date,
         status=application_data.status,
         interview_status=application_data.interview_status,
@@ -87,6 +148,7 @@ def update_application(
 
     application.student_id = application_data.student_id
     application.internship_id = application_data.internship_id
+    application.job_id = application_data.job_id
     application.application_date = application_data.application_date
     application.status = application_data.status
     application.interview_status = application_data.interview_status

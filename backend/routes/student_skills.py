@@ -49,6 +49,7 @@ def create_student_skill(
     db: Session = Depends(get_db)
 ):
     item = StudentSkill(
+        student_skill_id=data.student_skill_id,
         student_id=data.student_id,
         skill_id=data.skill_id,
         proficiency_level=data.proficiency_level,
@@ -60,8 +61,6 @@ def create_student_skill(
     db.refresh(item)
 
     return item
-
-
 @router.put("/{student_skill_id}")
 def update_student_skill(
     student_skill_id: int,
