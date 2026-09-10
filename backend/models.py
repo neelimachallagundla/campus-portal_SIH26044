@@ -171,8 +171,6 @@ class LearningPath(Base):
     path_id = Column(BigInteger, primary_key=True, autoincrement=True)
     title = Column(String(255), nullable=False)
     description = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
 
 class Course(Base):
     __tablename__ = "courses"
@@ -262,3 +260,5 @@ class Job(Base):
     salary = Column(String(100))
     required_skills = Column(Text)
     application_deadline = Column(Date)
+
+

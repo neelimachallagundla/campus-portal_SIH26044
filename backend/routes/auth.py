@@ -48,12 +48,19 @@ def register(
 
     hashed_password = pwd_context.hash(data.password)
 
+    last_user_id = db.query(User.user_id).order_by(
+        User.user_id.desc()
+    ).first()
+
+    next_user_id = (last_user_id[0] + 1) if last_user_id else 1
+
     user = User(
-        name=data.name,
-        email=data.email,
-        password_hash=hashed_password,
-        role=data.role
-    )
+    user_id=next_user_id,
+    name=data.name,
+    email=data.email,
+    password_hash=hashed_password,
+    role=data.role
+)
 
     db.add(user)
     db.commit()

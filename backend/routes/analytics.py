@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-
+from security import verify_access_token
 from database import SessionLocal
 from models import (
     Student,
@@ -20,6 +21,8 @@ router = APIRouter(
     tags=["Power BI Analytics"]
 )
 
+security = HTTPBearer()
+
 
 def get_db():
     db = SessionLocal()
@@ -30,7 +33,17 @@ def get_db():
 
 
 @router.get("/powerbi")
-def get_powerbi_analytics(db: Session = Depends(get_db)):
+def get_powerbi_analytics(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    payload = verify_access_token(credentials.credentials)
+
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    if payload.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
 
     # Total counts
     total_students = db.query(Student).count()
@@ -237,4 +250,48 @@ def get_powerbi_analytics(db: Session = Depends(get_db)):
             }
             for skill, count in industry_skill_demand
         ]
+    }
+embed_router = APIRouter(
+    prefix="/api/admin/powerbi",
+    tags=["Power BI"]
+)
+
+# =========================================================
+# ADMIN ANALYTICS SUMMARY
+# =========================================================
+
+@router.get("/summary")
+def get_admin_analytics_summary(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    payload = verify_access_token(credentials.credentials)
+
+    if not payload:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"
+        )
+
+    if payload.get("role") != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Admin access required"
+        )
+
+    return {
+        "total_students": db.query(Student).count(),
+        "total_companies": db.query(Company).count(),
+        "total_internships": db.query(Internship).count(),
+        "total_applications": db.query(Application).count(),
+        "total_placements": db.query(Placement).count(),
+        "total_skills": db.query(Skill).count()
+    }
+
+@embed_router.get("/embed-config")
+def get_powerbi_embed_config():
+    return {
+        "reportId": "your-report-id",
+        "embedUrl": "your-embed-url",
+        "accessToken": "generated-embed-token"
     }
