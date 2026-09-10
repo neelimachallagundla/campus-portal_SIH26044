@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -21,6 +22,14 @@ router = APIRouter(
 )
 
 security = HTTPBearer()
+
+class ProgressCreate(BaseModel):
+    lesson_id: int
+    completed: bool = False
+
+
+class ProgressUpdate(BaseModel):
+    completed: bool
 
 
 def get_db():
@@ -79,6 +88,257 @@ def get_current_student(
         )
 
     return student
+
+
+# ---------------------------------------------------------
+# GET student's overall progress
+# GET /api/progress/me
+# ---------------------------------------------------------
+
+@router.get("/progress/me")
+def get_progress_me(
+    student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db)
+):
+    progress_records = db.query(LessonProgress).filter(
+        LessonProgress.student_id == student.student_id
+    ).all()
+
+    total = len(progress_records)
+
+    completed = sum(
+        1 for record in progress_records
+        if record.completed
+    )
+
+    return {
+        "student_id": student.student_id,
+        "total_lessons_tracked": total,
+        "completed_lessons": completed
+    }
+
+
+# ---------------------------------------------------------
+# GET student's progress for a course
+# GET /api/progress/me/{course_id}
+# ---------------------------------------------------------
+
+@router.get("/progress/me/{course_id}")
+def get_progress_me_course(
+    course_id: int,
+    student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db)
+):
+    course = db.query(Course).filter(
+        Course.course_id == course_id
+    ).first()
+
+    if not course:
+        raise HTTPException(
+            status_code=404,
+            detail="Course not found"
+        )
+
+    enrollment = db.query(Enrollment).filter(
+        Enrollment.student_id == student.student_id,
+        Enrollment.course_id == course_id
+    ).first()
+
+    if not enrollment:
+        raise HTTPException(
+            status_code=400,
+            detail="Student is not enrolled in this course"
+        )
+
+    lessons = (
+        db.query(Lesson)
+        .join(
+            Module,
+            Lesson.module_id == Module.module_id
+        )
+        .filter(
+            Module.course_id == course_id
+        )
+        .all()
+    )
+
+    total_lessons = len(lessons)
+
+    lesson_ids = [
+        lesson.lesson_id
+        for lesson in lessons
+    ]
+
+    completed_lessons = 0
+
+    if lesson_ids:
+        completed_lessons = db.query(LessonProgress).filter(
+            LessonProgress.student_id == student.student_id,
+            LessonProgress.lesson_id.in_(lesson_ids),
+            LessonProgress.completed.is_(True)
+        ).count()
+
+    progress_percentage = 0
+
+    if total_lessons > 0:
+        progress_percentage = round(
+            (completed_lessons / total_lessons) * 100,
+            2
+        )
+
+    return {
+        "student_id": student.student_id,
+        "course_id": course_id,
+        "course_title": course.title,
+        "total_lessons": total_lessons,
+        "completed_lessons": completed_lessons,
+        "progress_percentage": progress_percentage
+    }
+
+
+# ---------------------------------------------------------
+# CREATE progress
+# POST /api/progress
+# ---------------------------------------------------------
+
+@router.post("/progress")
+def create_progress(
+    data: ProgressCreate,
+    student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db)
+):
+    lesson = db.query(Lesson).filter(
+        Lesson.lesson_id == data.lesson_id
+    ).first()
+
+    if not lesson:
+        raise HTTPException(
+            status_code=404,
+            detail="Lesson not found"
+        )
+
+    existing = db.query(LessonProgress).filter(
+        LessonProgress.student_id == student.student_id,
+        LessonProgress.lesson_id == data.lesson_id
+    ).first()
+
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="Progress record already exists for this lesson"
+        )
+
+    progress = LessonProgress(
+        student_id=student.student_id,
+        lesson_id=data.lesson_id,
+        completed=data.completed,
+        completed_at=datetime.utcnow() if data.completed else None
+    )
+
+    db.add(progress)
+    db.commit()
+    db.refresh(progress)
+
+    return {
+        "progress_id": progress.progress_id,
+        "student_id": progress.student_id,
+        "lesson_id": progress.lesson_id,
+        "completed": progress.completed,
+        "completed_at": progress.completed_at
+    }
+
+
+# ---------------------------------------------------------
+# UPDATE progress
+# PUT /api/progress/{progress_id}
+# ---------------------------------------------------------
+
+@router.put("/progress/{progress_id}")
+def update_progress(
+    progress_id: int,
+    data: ProgressUpdate,
+    student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db)
+):
+    progress = db.query(LessonProgress).filter(
+        LessonProgress.progress_id == progress_id,
+        LessonProgress.student_id == student.student_id
+    ).first()
+
+    if not progress:
+        raise HTTPException(
+            status_code=404,
+            detail="Progress record not found"
+        )
+
+    progress.completed = data.completed
+
+    if data.completed:
+        progress.completed_at = datetime.utcnow()
+    else:
+        progress.completed_at = None
+
+    db.commit()
+    db.refresh(progress)
+
+    return {
+        "progress_id": progress.progress_id,
+        "student_id": progress.student_id,
+        "lesson_id": progress.lesson_id,
+        "completed": progress.completed,
+        "completed_at": progress.completed_at
+    }
+
+
+# ---------------------------------------------------------
+# COMPLETE LESSON
+# POST /api/progress/lesson/{lesson_id}/complete
+# ---------------------------------------------------------
+
+@router.post("/progress/lesson/{lesson_id}/complete")
+def complete_progress_lesson(
+    lesson_id: int,
+    student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db)
+):
+    lesson = db.query(Lesson).filter(
+        Lesson.lesson_id == lesson_id
+    ).first()
+
+    if not lesson:
+        raise HTTPException(
+            status_code=404,
+            detail="Lesson not found"
+        )
+
+    progress = db.query(LessonProgress).filter(
+        LessonProgress.student_id == student.student_id,
+        LessonProgress.lesson_id == lesson_id
+    ).first()
+
+    if progress:
+        progress.completed = True
+        progress.completed_at = datetime.utcnow()
+    else:
+        progress = LessonProgress(
+            student_id=student.student_id,
+            lesson_id=lesson_id,
+            completed=True,
+            completed_at=datetime.utcnow()
+        )
+        db.add(progress)
+
+    db.commit()
+    db.refresh(progress)
+
+    return {
+        "message": "Lesson marked as completed",
+        "progress_id": progress.progress_id,
+        "student_id": student.student_id,
+        "lesson_id": lesson_id,
+        "completed": True,
+        "completed_at": progress.completed_at
+    }
 
 
 # ---------------------------------------------------------

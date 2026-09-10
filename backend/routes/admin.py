@@ -3,7 +3,15 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from database import SessionLocal
-from models import Student, Company, Application, Placement, Internship
+from models import (
+    Student,
+    Company,
+    Application,
+    Placement,
+    Internship,
+    TrainingProgram,
+    Skill
+)
 from security import verify_access_token
 
 
@@ -202,3 +210,54 @@ def get_all_internships_for_admin(
         )
 
     return db.query(Internship).all()
+
+# =========================================================
+# GET all training programs - Admin only
+# =========================================================
+
+@router.get("/training-programs")
+def get_admin_training_programs(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    payload = verify_access_token(credentials.credentials)
+
+    if not payload:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"
+        )
+
+    if payload.get("role") != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Admin access required"
+        )
+
+    return db.query(TrainingProgram).all()
+
+
+# =========================================================
+# GET all skills - Admin only
+# =========================================================
+
+@router.get("/skills")
+def get_admin_skills(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    payload = verify_access_token(credentials.credentials)
+
+    if not payload:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"
+        )
+
+    if payload.get("role") != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Admin access required"
+        )
+
+    return db.query(Skill).all()

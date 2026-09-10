@@ -7,7 +7,7 @@ from schemas import StudentSkillCreate
 
 
 router = APIRouter(
-    prefix="/student-skills",
+    prefix="/api/student-skills",
     tags=["Student Skills"]
 )
 
